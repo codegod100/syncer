@@ -519,12 +519,16 @@ class ConnectionDialog(QDialog):
         layout.addWidget(details_group)
         
         # Buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Connect | QDialogButtonBox.StandardButton.Cancel
-        )
-        button_box.accepted.connect(self._on_connect)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
+        self.connect_btn = QPushButton("Connect")
+        self.connect_btn.clicked.connect(self._on_connect)
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(self.connect_btn)
+        button_layout.addWidget(self.cancel_btn)
+        layout.addLayout(button_layout)
     
     def _on_host_selected(self, host_name: str):
         """Handle selection from saved hosts dropdown."""
