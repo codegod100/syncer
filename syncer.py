@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
     QSplitter, QTreeWidget, QTreeWidgetItem, QLabel, QPushButton,
     QLineEdit, QDialog, QDialogButtonBox, QComboBox, QRadioButton,
     QGroupBox, QPlainTextEdit, QMessageBox, QFileDialog, QMenu,
-    QTabWidget, QMessageBox
+    QTabWidget, QMessageBox, QCheckBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QAction, QCursor
@@ -36,6 +36,44 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def parse_gitignore(path: str) -> List[str]:
+    """
+    Parse .gitignore file and return list of ignore patterns.
+    
+    Args:
+        path: Directory path to look for .gitignore
+        
+    Returns:
+        List of ignore patterns suitable for mutagen
+    """
+    gitignore_path = os.path.join(path, '.gitignore')
+    patterns = []
+    
+    if not os.path.exists(gitignore_path):
+        logger.debug(f"No .gitignore found at {gitignore_path}")
+        return patterns
+    
+    try:
+        with open(gitignore_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty lines and comments
+                if not line or line.startswith('#'):
+                    continue
+                # Skip negation patterns (not supported by mutagen)
+                if line.startswith('!'):
+                    logger.debug(f"Skipping negation pattern: {line}")
+                    continue
+                # Convert .gitignore patterns to mutagen patterns
+                patterns.append(line)
+        
+        logger.info(f"Parsed {len(patterns)} patterns from {gitignore_path}")
+    except Exception as e:
+        logger.error(f"Error parsing .gitignore: {e}")
+    
+    return patterns
 
 
 def parse_ssh_config() -> List[Dict]:
@@ -722,7 +760,7 @@ class SyncCreateDialog(QDialog):
     def __init__(self, parent=None, remote_path: str = "", ssh_conn: SSHConnection = None):
         super().__init__(parent)
         self.setWindowTitle("Create Sync Session")
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(550)
         self.remote_path = remote_path
         self.ssh_conn = ssh_conn
         self.result = None
@@ -773,6 +811,21 @@ class SyncCreateDialog(QDialog):
         
         layout.addWidget(mode_group)
         
+        # Ignore options
+        ignore_group = QGroupBox("Ignore Options")
+        ignore_layout = QVBoxLayout(ignore_group)
+        
+        self.use_gitignore = QCheckBox("Use .gitignore patterns")
+        self.use_gitignore.setChecked(True)
+        self.use_gitignore.setToolTip("Automatically ignore files matching patterns in .gitignore")
+        ignore_layout.addWidget(self.use_gitignore)
+        
+        self.ignore_vcs = QCheckBox("Ignore VCS directories (.git, .hg, .svn)")
+        self.ignore_vcs.setChecked(True)
+        ignore_layout.addWidget(self.ignore_vcs)
+        
+        layout.addWidget(ignore_group)
+        
         # Buttons
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -812,11 +865,22 @@ class SyncCreateDialog(QDialog):
         }
         mode_text = self.mode_combo.currentText().split()[0]
         
+        # Collect ignores
+        ignores = []
+        
+        if self.use_gitignore.isChecked():
+            gitignore_patterns = parse_gitignore(local)
+            ignores.extend(gitignore_patterns)
+        
+        if self.ignore_vcs.isChecked():
+            ignores.extend(['.git', '.hg', '.svn', '.bzr'])
+        
         self.result = {
             'name': name,
             'alpha': local,
             'beta': remote_str,
-            'mode': mode_map.get(mode_text, 'two-way-safe')
+            'mode': mode_map.get(mode_text, 'two-way-safe'),
+            'ignores': ignores
         }
         self.accept()
 
@@ -1280,6 +1344,14 @@ class SyncerApp(QMainWindow):
             args = ['sync', 'create']
             args.extend(['-n', dialog.result['name']])
             args.extend(['-m', dialog.result['mode']])
+            
+            # Add ignore patterns
+            ignores = dialog.result.get('ignores', [])
+            if ignores:
+                self._log(f"  Ignoring {len(ignores)} patterns from .gitignore and VCS")
+                for pattern in ignores:
+                    args.extend(['-i', pattern])
+            
             args.extend([dialog.result['alpha'], dialog.result['beta']])
             
             code, stdout, stderr = MutagenManager.run_command(args)
