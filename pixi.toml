@@ -1,0 +1,15 @@
+[workspace]
+authors = ["nandi <nandithebull@outlook.com>"]
+channels = ["https://repo.prefix.dev/nandi-testing", "conda-forge"]
+name = "syncer"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks.start]
+cmd = "python syncer.py"
+env = { QT_QPA_PLATFORM = "wayland;xcb" }
+
+[dependencies]
+paramiko = ">=4.0.0,<5"
+pyqt6 = ">=6.8,<7"
+qt6-wayland = ">=6.8,<7"
