@@ -352,62 +352,87 @@ class MutagenManager:
             return -1, "", error_msg
     
     @staticmethod
-    def list_forward_sessions() -> List[Dict]:
-        """List all forwarding sessions."""
-        logger.debug("Listing forward sessions")
-        code, stdout, stderr = MutagenManager.run_command(['forward', 'list', '-l'])
-        
-        if code != 0:
-            logger.error(f"Failed to list forward sessions: {stderr}")
-            return []
-        
+    def _parse_sessions(output: str) -> List[Dict]:
+        """Parse mutagen session list output."""
         sessions = []
-        lines = stdout.strip().split('\n')
+        current = {}
+        section = None  # Track which section we're in (source, destination, alpha, beta)
         
-        for line in lines:
-            if not line.strip():
+        for line in output.split('\n'):
+            stripped = line.strip()
+            if not stripped:
                 continue
-            parts = line.split()
-            if len(parts) >= 3:
-                sessions.append({
-                    'raw': line,
-                    'name': parts[0].rstrip(':') if ':' in parts[0] else parts[0],
-                    'source': parts[1] if len(parts) > 1 else '',
-                    'destination': parts[3] if len(parts) > 3 else '',
-                    'status': 'unknown'
-                })
+            
+            if stripped.startswith('---'):
+                # Session separator
+                if current and current.get('identifier'):
+                    sessions.append(current)
+                current = {}
+                section = None
+            elif stripped.startswith('Identifier:'):
+                if current and current.get('identifier'):
+                    sessions.append(current)
+                current = {'identifier': stripped.split(':', 1)[1].strip()}
+            elif stripped in ('Source:', 'Destination:', 'Alpha:', 'Beta:'):
+                section = stripped.rstrip(':').lower()
+            elif ':' in stripped and current:
+                # Parse key: value
+                key_val = stripped.split(':', 1)
+                key = key_val[0].strip().lower()
+                value = key_val[1].strip() if len(key_val) > 1 else ''
+                
+                if key == 'url' and section:
+                    if section == 'source':
+                        current['source'] = value
+                    elif section == 'destination':
+                        current['destination'] = value
+                    elif section == 'alpha':
+                        current['alpha'] = value
+                    elif section == 'beta':
+                        current['beta'] = value
+                elif key == 'status':
+                    current['status'] = value
         
-        logger.debug(f"Found {len(sessions)} forward sessions")
+        if current and current.get('identifier'):
+            sessions.append(current)
+        
         return sessions
     
     @staticmethod
-    def list_sync_sessions() -> List[Dict]:
-        """List all synchronization sessions."""
-        logger.debug("Listing sync sessions")
-        code, stdout, stderr = MutagenManager.run_command(['sync', 'list', '-l'])
+    def list_forward_sessions() -> Tuple[List[Dict], str]:
+        """
+        List all forwarding sessions.
+        
+        Returns:
+            Tuple of (sessions, error_message)
+        """
+        logger.debug("Listing forward sessions")
+        code, stdout, stderr = MutagenManager.run_command(['forward', 'list'])
         
         if code != 0:
-            logger.error(f"Failed to list sync sessions: {stderr}")
-            return []
+            return [], stderr
         
-        sessions = []
-        lines = stdout.strip().split('\n')
+        sessions = MutagenManager._parse_sessions(stdout)
+        logger.debug(f"Found {len(sessions)} forward sessions")
+        return sessions, ""
+    
+    @staticmethod
+    def list_sync_sessions() -> Tuple[List[Dict], str]:
+        """
+        List all synchronization sessions.
         
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.split()
-            if len(parts) >= 3:
-                sessions.append({
-                    'raw': line,
-                    'name': parts[0].rstrip(':') if ':' in parts[0] else parts[0],
-                    'alpha': parts[1] if len(parts) > 1 else '',
-                    'beta': parts[3] if len(parts) > 3 else '',
-                    'status': 'unknown'
-                })
+        Returns:
+            Tuple of (sessions, error_message)
+        """
+        logger.debug("Listing sync sessions")
+        code, stdout, stderr = MutagenManager.run_command(['sync', 'list'])
         
+        if code != 0:
+            return [], stderr
+        
+        sessions = MutagenManager._parse_sessions(stdout)
         logger.debug(f"Found {len(sessions)} sync sessions")
-        return sessions
+        return sessions, ""
     
     @staticmethod
     def create_forward_session(source: str, destination: str, name: str = None) -> Tuple[int, str, str]:
@@ -1269,28 +1294,46 @@ class SyncerApp(QMainWindow):
     def _refresh_forward(self):
         """Refresh forward sessions list."""
         self.forward_tree.clear()
-        sessions = MutagenManager.list_forward_sessions()
+        sessions, error = MutagenManager.list_forward_sessions()
+        
+        if error:
+            self._log(f"✗ Error listing forward sessions: {error}")
+            return
+        
         for session in sessions:
+            identifier = session.get('identifier', '')
+            # Extract short name from identifier (e.g., "fwrd_xxx" -> "fwrd_xxx")
+            name = identifier.split('_')[0] + '_' + identifier.split('_')[1][:8] if '_' in identifier else identifier
             item = QTreeWidgetItem([
-                session.get('name', ''),
+                identifier,
                 session.get('source', ''),
                 session.get('destination', ''),
                 session.get('status', '')
             ])
             self.forward_tree.addTopLevelItem(item)
+        
+        self._log(f"Listed {len(sessions)} forward sessions")
     
     def _refresh_sync(self):
         """Refresh sync sessions list."""
         self.sync_tree.clear()
-        sessions = MutagenManager.list_sync_sessions()
+        sessions, error = MutagenManager.list_sync_sessions()
+        
+        if error:
+            self._log(f"✗ Error listing sync sessions: {error}")
+            return
+        
         for session in sessions:
+            identifier = session.get('identifier', '')
             item = QTreeWidgetItem([
-                session.get('name', ''),
+                identifier,
                 session.get('alpha', ''),
                 session.get('beta', ''),
                 session.get('status', '')
             ])
             self.sync_tree.addTopLevelItem(item)
+        
+        self._log(f"Listed {len(sessions)} sync sessions")
     
     def _refresh_all_sessions(self):
         """Refresh both session lists."""
