@@ -370,9 +370,9 @@ class MutagenManager:
                 current = {}
                 section = None
             elif stripped.startswith('Identifier:'):
-                if current and current.get('identifier'):
-                    sessions.append(current)
-                current = {'identifier': stripped.split(':', 1)[1].strip()}
+                current['identifier'] = stripped.split(':', 1)[1].strip()
+            elif stripped.startswith('Name:'):
+                current['name'] = stripped.split(':', 1)[1].strip()
             elif stripped in ('Source:', 'Destination:', 'Alpha:', 'Beta:'):
                 section = stripped.rstrip(':').lower()
             elif ':' in stripped and current:
@@ -1301,11 +1301,10 @@ class SyncerApp(QMainWindow):
             return
         
         for session in sessions:
-            identifier = session.get('identifier', '')
-            # Extract short name from identifier (e.g., "fwrd_xxx" -> "fwrd_xxx")
-            name = identifier.split('_')[0] + '_' + identifier.split('_')[1][:8] if '_' in identifier else identifier
+            # Use name if available, otherwise show identifier
+            display_name = session.get('name') or session.get('identifier', '')
             item = QTreeWidgetItem([
-                identifier,
+                display_name,
                 session.get('source', ''),
                 session.get('destination', ''),
                 session.get('status', '')
@@ -1324,9 +1323,10 @@ class SyncerApp(QMainWindow):
             return
         
         for session in sessions:
-            identifier = session.get('identifier', '')
+            # Use name if available, otherwise show identifier
+            display_name = session.get('name') or session.get('identifier', '')
             item = QTreeWidgetItem([
-                identifier,
+                display_name,
                 session.get('alpha', ''),
                 session.get('beta', ''),
                 session.get('status', '')
