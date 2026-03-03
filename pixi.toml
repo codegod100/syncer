@@ -5,7 +5,7 @@ name = "syncer"
 platforms = ["linux-64"]
 version = "0.1.0"
 
-[tasks.start]
+[tasks.run]
 cmd = "PYTHONPATH=$PYTHONPATH:/usr/lib/python3.14/site-packages python syncer.py"
 
 [dependencies]
