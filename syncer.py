@@ -16,6 +16,22 @@ import logging
 import traceback
 import subprocess
 import signal
+
+# Add system site-packages to sys.path to pick up system-installed PyQt6 (Kvantum theme)
+# This avoids hardcoding Python version in pixi.toml
+try:
+    _sys_py = "/usr/bin/python3"
+    if os.path.exists(_sys_py):
+        _res = subprocess.run(
+            [_sys_py, "-c", "import site; print(':'.join(site.getsitepackages()))"],
+            capture_output=True, text=True, check=True
+        )
+        for _p in _res.stdout.strip().split(':'):
+            if _p and _p not in sys.path:
+                sys.path.append(_p)
+except Exception:
+    pass
+
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Tuple
 

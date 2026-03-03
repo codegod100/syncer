@@ -6,7 +6,7 @@ platforms = ["linux-64"]
 version = "0.1.0"
 
 [tasks.main]
-cmd = "PYTHONPATH=$PYTHONPATH:/usr/lib/python3.14/site-packages python syncer.py"
+cmd = "python syncer.py"
 
 [dependencies]
 paramiko = ">=4.0.0,<5"
