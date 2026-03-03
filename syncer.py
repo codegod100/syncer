@@ -15,6 +15,7 @@ import getpass
 import logging
 import traceback
 import subprocess
+import signal
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Tuple
 
@@ -25,7 +26,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QPlainTextEdit, QMessageBox, QFileDialog, QMenu,
     QTabWidget, QMessageBox, QCheckBox
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QCursor
 
 import paramiko
@@ -1482,8 +1483,16 @@ class SyncerApp(QMainWindow):
 
 def main():
     """Main entry point."""
+    # Allow Ctrl+C to stop the application
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    
     app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Modern cross-platform style
+    
+    # Optional: A timer to periodically run the Python interpreter to catch signals
+    # Not strictly needed with SIG_DFL, but good practice for cleaner exits
+    timer = QTimer()
+    timer.start(500)
+    timer.timeout.connect(lambda: None)
     
     window = SyncerApp()
     window.show()
