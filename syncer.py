@@ -913,11 +913,15 @@ class SyncerApp(QMainWindow):
         self.sftp = SFTPBrowser()
         self.mutagen = MutagenManager()
         self.saved_connections: List[dict] = []
+        self.last_connection: Optional[dict] = None
         self.config_file = os.path.expanduser("~/.syncer_config.json")
         
         self._load_config()
         self._create_menu()
         self._create_ui()
+        
+        # Prompt to reconnect to last session after UI is ready
+        QTimer.singleShot(100, self._prompt_reconnect)
         
     def _load_config(self):
         """Load saved configuration."""
@@ -926,17 +930,42 @@ class SyncerApp(QMainWindow):
                 with open(self.config_file, 'r') as f:
                     config = json.load(f)
                     self.saved_connections = config.get('connections', [])
+                    self.last_connection = config.get('last_connection')
         except Exception:
             pass
     
     def _save_config(self):
         """Save configuration."""
         try:
-            config = {'connections': self.saved_connections}
+            config = {
+                'connections': self.saved_connections,
+                'last_connection': self.last_connection
+            }
             with open(self.config_file, 'w') as f:
                 json.dump(config, f, indent=2)
         except Exception:
             pass
+    
+    def _prompt_reconnect(self):
+        """Prompt user to reconnect to last session on startup."""
+        if not self.last_connection:
+            return
+        
+        host = self.last_connection.get('host', 'unknown')
+        username = self.last_connection.get('username', '')
+        port = self.last_connection.get('port', 22)
+        
+        reply = QMessageBox.question(
+            self,
+            "Reconnect to Previous Session?",
+            f"Do you want to reconnect to the previous session?\n\n"
+            f"Host: {username}@{host}:{port}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self._reconnect_last()
     
     def _create_menu(self):
         """Create menu bar."""
@@ -1164,6 +1193,31 @@ class SyncerApp(QMainWindow):
             self.path_edit.setText("/")
             self.file_tree.clear()
     
+    def _reconnect_last(self):
+        """Reconnect using the last saved connection."""
+        if not self.last_connection:
+            return
+        
+        conn = SSHConnection(
+            host=self.last_connection.get('host', ''),
+            port=self.last_connection.get('port', 22),
+            username=self.last_connection.get('username', ''),
+            key_path=self.last_connection.get('key_path')
+        )
+        
+        self._log(f"Reconnecting to {conn.host}:{conn.port} as {conn.username}...")
+        success, message = self.sftp.connect(conn)
+        
+        if success:
+            self._update_connection_state(True)
+            self._log(f"✓ {message}")
+            self._log(f"Current directory: {self.sftp.current_path}")
+            self.path_edit.setText(self.sftp.current_path)
+            self._refresh_all_sessions()
+        else:
+            self._log(f"✗ Reconnection failed: {message}")
+            QMessageBox.critical(self, "Connection Error", f"Failed to reconnect:\n\n{message}")
+    
     def _on_connect(self):
         """Handle connect button."""
         initial = {}
@@ -1188,7 +1242,7 @@ class SyncerApp(QMainWindow):
                 self._log(f"Current directory: {self.sftp.current_path}")
                 self.path_edit.setText(self.sftp.current_path)
                 
-                # Save connection
+                # Save connection and remember as last used
                 conn_dict = {
                     'host': conn.host,
                     'port': conn.port,
@@ -1197,7 +1251,9 @@ class SyncerApp(QMainWindow):
                 }
                 if conn_dict not in self.saved_connections:
                     self.saved_connections.append(conn_dict)
-                    self._save_config()
+                self.last_connection = conn_dict
+                self._save_config()
+                self._refresh_all_sessions()
             else:
                 self._log(f"✗ Connection failed: {message}")
                 QMessageBox.critical(self, "Connection Error", f"Failed to connect:\n\n{message}")

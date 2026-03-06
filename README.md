@@ -17,18 +17,17 @@ A Python GUI application for SFTP navigation and Mutagen session management.
 
 ## Installation
 
-This project uses [pixi](https://pixi.sh) for dependency management.
+This project uses [devenv](https://devenv.sh) for dependency management.
 
 ```bash
-# Install dependencies
-pixi install
+# Enter the environment
+devenv shell
 
 # Run the application
-pixi run start
-
-# Or run directly
-pixi run python syncer.py
+main
 ```
+
+If you have [direnv](https://direnv.net) installed, the environment will be automatically loaded when you enter the directory.
 
 ## Usage
 

@@ -1,0 +1,7 @@
+/home/nandi/code/syncer/.devenv/bootstrap/bootstrapLib.nix
+/home/nandi/code/syncer/.devenv/bootstrap/default.nix
+/home/nandi/code/syncer/.devenv/bootstrap/resolve-lock.nix
+/home/nandi/code/syncer/devenv.local.nix
+/home/nandi/code/syncer/devenv.lock
+/home/nandi/code/syncer/devenv.nix
+/home/nandi/code/syncer/.env
