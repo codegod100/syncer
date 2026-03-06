@@ -32,7 +32,7 @@
       syncer-desktop = pkgs.makeDesktopItem {
         name = "syncer";
         desktopName = "Syncer";
-        exec = "syncer";
+        exec = "/home/nandi/.nix-profile/bin/syncer";
         icon = "folder-remote"; # Standard icon for remote folders
         comment = "SFTP & Mutagen Manager";
         categories = [ "Development" "Network" ];
@@ -45,16 +45,7 @@
 
         nativeBuildInputs = [ pkgs.copyDesktopItems ];
 
-        desktopItems = [
-          (pkgs.makeDesktopItem {
-            name = "syncer";
-            desktopName = "Syncer";
-            exec = "syncer";
-            icon = "folder-remote";
-            comment = "SFTP & Mutagen Manager";
-            categories = [ "Development" "Network" ];
-          })
-        ];
+        desktopItems = [ syncer-desktop ];
 
         installPhase = ''
           mkdir -p $out/bin
