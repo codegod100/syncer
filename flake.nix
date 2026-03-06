@@ -17,8 +17,7 @@
         modules = [
           {
             # Fix "devenv was not able to determine the current directory" in CI
-            # Explicitly convert path to string to avoid type error
-            devenv.root = builtins.toString ./.;
+            devenv.root = self.outPath;
           }
           ./devenv.nix
         ];
