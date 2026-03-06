@@ -15,6 +15,10 @@
       devShells.${system}.default = devenv.lib.mkShell {
         inherit inputs pkgs;
         modules = [
+          {
+            # Fix "devenv was not able to determine the current directory" in CI
+            devenv.root = ./.;
+          }
           ./devenv.nix
         ];
       };
