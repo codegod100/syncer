@@ -38,12 +38,28 @@
       };
     in
     {
-      packages.${system}.default = pkgs.symlinkJoin {
-        name = "syncer-with-desktop";
-        paths = [
-          syncer-app
-          syncer-desktop
+      packages.${system}.default = pkgs.stdenv.mkDerivation {
+        name = "syncer";
+        src = ./.;
+
+        nativeBuildInputs = [ pkgs.copyDesktopItems ];
+
+        desktopItems = [
+          (pkgs.makeDesktopItem {
+            name = "syncer";
+            desktopName = "Syncer";
+            exec = "syncer";
+            icon = "folder-remote";
+            comment = "SFTP & Mutagen Manager";
+            categories = [ "Development" "Network" ];
+          })
         ];
+
+        installPhase = ''
+          mkdir -p $out/bin
+          ln -s ${syncer-app}/bin/syncer $out/bin/syncer
+          runHook postInstall
+        '';
       };
 
       devShells.${system}.default = devenv.lib.mkShell {
