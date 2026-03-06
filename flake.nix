@@ -11,8 +11,8 @@
       system = "x86_64-linux"; 
       pkgs = nixpkgs.legacyPackages.${system};
     in
-    {
-      packages.${system}.default = pkgs.writeShellApplication {
+    let
+      syncer-app = pkgs.writeShellApplication {
         name = "syncer";
         runtimeInputs = [
           (pkgs.python3.withPackages (ps: with ps; [
@@ -26,6 +26,24 @@
           export QT_STYLE_OVERRIDE="kvantum"
           python ${./syncer.py} "$@"
         '';
+      };
+
+      syncer-desktop = pkgs.makeDesktopItem {
+        name = "syncer";
+        desktopName = "Syncer";
+        exec = "syncer";
+        icon = "folder-remote"; # Standard icon for remote folders
+        comment = "SFTP & Mutagen Manager";
+        categories = [ "Development" "Network" ];
+      };
+    in
+    {
+      packages.${system}.default = pkgs.symlinkJoin {
+        name = "syncer-with-desktop";
+        paths = [
+          syncer-app
+          syncer-desktop
+        ];
       };
 
       devShells.${system}.default = devenv.lib.mkShell {
