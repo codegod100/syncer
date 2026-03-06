@@ -24,6 +24,7 @@
         ];
         text = ''
           export QT_STYLE_OVERRIDE="kvantum"
+          export QT_PLUGIN_PATH="${pkgs.qt6Packages.qtstyleplugin-kvantum}/lib/qt-6/plugins"
           python ${./syncer.py} "$@"
         '';
       };
