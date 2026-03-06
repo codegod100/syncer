@@ -1,14 +1,11 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    devenv.url = "github:cachix/devenv";
   };
 
-  outputs = { self, nixpkgs, devenv, ... } @ inputs:
+  outputs = { self, nixpkgs, ... }:
     let
-      # Use the current system. 
-      # For a multi-platform flake, consider using `flake-utils`.
-      system = "x86_64-linux"; 
+      system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
     in
     let
@@ -32,8 +29,8 @@
       syncer-desktop = pkgs.makeDesktopItem {
         name = "syncer";
         desktopName = "Syncer";
-        exec = "/home/nandi/.nix-profile/bin/syncer";
-        icon = "folder-remote"; # Standard icon for remote folders
+        exec = "syncer";
+        icon = "folder-remote";
         comment = "SFTP & Mutagen Manager";
         categories = [ "Development" "Network" ];
       };
@@ -52,17 +49,6 @@
           ln -s ${syncer-app}/bin/syncer $out/bin/syncer
           runHook postInstall
         '';
-      };
-
-      devShells.${system}.default = devenv.lib.mkShell {
-        inherit inputs pkgs;
-        modules = [
-          {
-            # Fix "devenv was not able to determine the current directory" in CI
-            devenv.root = self.outPath;
-          }
-          ./devenv.nix
-        ];
       };
     };
 }

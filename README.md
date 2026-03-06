@@ -9,25 +9,31 @@ A Python GUI application for SFTP navigation and Mutagen session management.
 - **Sync Sessions**: Create and manage Mutagen synchronization sessions
 - **Session Management**: List, terminate, and monitor Mutagen sessions
 
-## Requirements
-
-- Python 3.8+
-- paramiko (for SFTP)
-- Mutagen (installed and in PATH)
-
 ## Installation
 
-This project uses [devenv](https://devenv.sh) for dependency management.
+### Nix (Recommended)
 
 ```bash
-# Enter the environment
-devenv shell
+# Run directly without installing
+nix run github:godcode100/syncer
 
-# Run the application
-main
+# Or install to your profile
+nix profile install github:godcode100/syncer
+syncer
 ```
 
-If you have [direnv](https://direnv.net) installed, the environment will be automatically loaded when you enter the directory.
+### Manual
+
+Requirements:
+- Python 3.8+
+- paramiko (for SFTP)
+- PyQt6
+- Mutagen (installed and in PATH)
+
+```bash
+pip install paramiko PyQt6
+python syncer.py
+```
 
 ## Usage
 
@@ -53,7 +59,7 @@ If you have [direnv](https://direnv.net) installed, the environment will be auto
 
 1. Navigate to desired remote path
 2. Right-click a folder → "Create Forward/Sync Session"
-3. Or use menu: Mutagen→ Create Forward/Sync Session
+3. Or use menu: Mutagen → Create Forward/Sync Session
 4. Fill in session details and click Create
 
 ### Managing Sessions
