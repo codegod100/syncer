@@ -12,6 +12,22 @@
       pkgs = nixpkgs.legacyPackages.${system};
     in
     {
+      packages.${system}.default = pkgs.writeShellApplication {
+        name = "syncer";
+        runtimeInputs = [
+          (pkgs.python3.withPackages (ps: with ps; [
+            paramiko
+            pyqt6
+          ]))
+          pkgs.mutagen
+          pkgs.qt6Packages.qtstyleplugin-kvantum
+        ];
+        text = ''
+          export QT_STYLE_OVERRIDE="kvantum"
+          python ${./syncer.py} "$@"
+        '';
+      };
+
       devShells.${system}.default = devenv.lib.mkShell {
         inherit inputs pkgs;
         modules = [
