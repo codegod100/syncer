@@ -673,11 +673,11 @@ class ConnectionDialog(QDialog):
 class ForwardCreateDialog(QDialog):
     """Dialog for creating a forwarding session."""
     
-    def __init__(self, parent=None, remote_path: str = "", ssh_conn: SSHConnection = None):
+    def __init__(self, parent=None, initial_remote_port: str = "", ssh_conn: SSHConnection = None):
         super().__init__(parent)
         self.setWindowTitle("Create Forward Session")
-        self.setMinimumWidth(500)
-        self.remote_path = remote_path
+        self.setMinimumWidth(400)
+        self.initial_remote_port = initial_remote_port
         self.ssh_conn = ssh_conn
         self.result = None
         
@@ -694,22 +694,20 @@ class ForwardCreateDialog(QDialog):
         name_row.addWidget(self.name_edit)
         layout.addLayout(name_row)
         
-        # Local path
+        # Local port
         local_row = QHBoxLayout()
-        local_row.addWidget(QLabel("Local Path:"))
-        self.local_edit = QLineEdit()
-        local_row.addWidget(self.local_edit)
-        local_btn = QPushButton("...")
-        local_btn.setMaximumWidth(40)
-        local_btn.clicked.connect(self._browse_local)
-        local_row.addWidget(local_btn)
+        local_row.addWidget(QLabel("Local Port:"))
+        self.local_port_edit = QLineEdit()
+        self.local_port_edit.setPlaceholderText("8080")
+        local_row.addWidget(self.local_port_edit)
         layout.addLayout(local_row)
         
-        # Remote path
+        # Remote port
         remote_row = QHBoxLayout()
-        remote_row.addWidget(QLabel("Remote Path:"))
-        self.remote_edit = QLineEdit(self.remote_path)
-        remote_row.addWidget(self.remote_edit)
+        remote_row.addWidget(QLabel("Remote Port:"))
+        self.remote_port_edit = QLineEdit(self.initial_remote_port)
+        self.remote_port_edit.setPlaceholderText("80")
+        remote_row.addWidget(self.remote_port_edit)
         layout.addLayout(remote_row)
         
         # Direction
@@ -733,22 +731,18 @@ class ForwardCreateDialog(QDialog):
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
     
-    def _browse_local(self):
-        path = QFileDialog.getExistingDirectory(self, "Select Local Directory")
-        if path:
-            self.local_edit.setText(path)
-    
     def _on_create(self):
         name = self.name_edit.text().strip()
-        local = self.local_edit.text().strip()
-        remote = self.remote_edit.text().strip()
+        local_port = self.local_port_edit.text().strip()
+        remote_port = self.remote_port_edit.text().strip()
         
-        if not name:
-            QMessageBox.warning(self, "Error", "Session name is required")
+        if not local_port or not remote_port:
+            QMessageBox.warning(self, "Error", "Both ports are required")
             return
-        if not local or not remote:
-            QMessageBox.warning(self, "Error", "Both paths are required")
-            return
+        
+        # Construct addresses
+        local = f"tcp:localhost:{local_port}"
+        remote = f"tcp:localhost:{remote_port}"
         
         # Build source/destination based on direction
         if self.ssh_conn:
@@ -861,9 +855,6 @@ class SyncCreateDialog(QDialog):
         local = self.local_edit.text().strip()
         remote = self.remote_edit.text().strip()
         
-        if not name:
-            QMessageBox.warning(self, "Error", "Session name is required")
-            return
         if not local or not remote:
             QMessageBox.warning(self, "Error", "Both paths are required")
             return
@@ -1340,9 +1331,6 @@ class SyncerApp(QMainWindow):
         menu = QMenu()
         
         if item_type == 'dir':
-            forward_action = menu.addAction(f"Create Forward Session from '{name}'")
-            forward_action.triggered.connect(lambda: self._create_forward_from_path(name, item_type))
-            
             sync_action = menu.addAction(f"Create Sync Session from '{name}'")
             sync_action.triggered.connect(lambda: self._create_sync_from_path(name, item_type))
         
@@ -1367,26 +1355,21 @@ class SyncerApp(QMainWindow):
                 return os.path.join(self.sftp.current_path, name)
         return self.sftp.current_path
     
-    def _create_forward_from_path(self, name: str, item_type: str):
-        """Create forward session from a path."""
-        path = os.path.join(self.sftp.current_path, name)
-        self._create_forward(default_path=path)
-    
     def _create_sync_from_path(self, name: str, item_type: str):
         """Create sync session from a path."""
         path = os.path.join(self.sftp.current_path, name)
         self._create_sync(default_path=path)
     
-    def _create_forward(self, default_path: str = ""):
+    def _create_forward(self, default_addr: str = ""):
         """Create a new forwarding session."""
+        if not isinstance(default_addr, str):
+            default_addr = ""
+            
         if not self.sftp.is_connected():
             QMessageBox.warning(self, "Warning", "Please connect to a server first")
             return
         
-        if not default_path:
-            default_path = self._get_selected_remote_path()
-        
-        dialog = ForwardCreateDialog(self, default_path, self.sftp.connection)
+        dialog = ForwardCreateDialog(self, default_addr, self.sftp.connection)
         if dialog.exec():
             self._log(f"Creating forward session '{dialog.result['name']}'...")
             code, stdout, stderr = MutagenManager.create_forward_session(
@@ -1404,6 +1387,9 @@ class SyncerApp(QMainWindow):
     
     def _create_sync(self, default_path: str = ""):
         """Create a new sync session."""
+        if not isinstance(default_path, str):
+            default_path = ""
+            
         if not self.sftp.is_connected():
             QMessageBox.warning(self, "Warning", "Please connect to a server first")
             return
@@ -1413,9 +1399,11 @@ class SyncerApp(QMainWindow):
         
         dialog = SyncCreateDialog(self, default_path, self.sftp.connection)
         if dialog.exec():
-            self._log(f"Creating sync session '{dialog.result['name']}'...")
+            session_name = dialog.result['name']
+            self._log(f"Creating sync session '{session_name}'...")
             args = ['sync', 'create']
-            args.extend(['-n', dialog.result['name']])
+            if session_name:
+                args.extend(['-n', session_name])
             args.extend(['-m', dialog.result['mode']])
             
             # Add ignore patterns
